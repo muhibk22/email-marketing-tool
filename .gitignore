@@ -1,0 +1,28 @@
+# Node / Electron
+electron-app/node_modules/
+electron-app/dist/
+electron-app/out/
+*.log
+
+# Python / FastAPI
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+backend/build/
+backend/dist/
+backend/*.spec
+
+# PyInstaller output (backend executable)
+backend/*.exe
+backend/*.dll
+
+# Environment files
+*.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
