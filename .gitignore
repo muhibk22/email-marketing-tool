@@ -1,13 +1,22 @@
+# ---------------------------
 # Node / Electron
+# ---------------------------
 electron-app/node_modules/
 electron-app/dist/
 electron-app/out/
 *.log
 
+# ---------------------------
 # Python / FastAPI
-backend/__pycache__/
+# ---------------------------
+# Python caches
+**/__pycache__/
+**/*.py[cod]
+
+# Virtual environments
 backend/.venv/
 backend/venv/
+backend/env/
 backend/build/
 backend/dist/
 backend/*.spec
