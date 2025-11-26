@@ -1,16 +1,21 @@
 import { Router } from './utils/router.js';
 import { LoginPage } from './pages/login.js';
+import { RegisterPage } from './pages/register.js';
 import { HomePage } from './pages/home.js';
+import { ROUTES } from './utils/constants.js';
 
 const routes = {
-    '/': LoginPage,
-    '/home': HomePage,
+    [ROUTES.HOME]: LoginPage,
+    [ROUTES.LOGIN]: LoginPage,
+    [ROUTES.REGISTER]: RegisterPage,
+    [ROUTES.DASHBOARD]: HomePage,
 };
 
+// Initialize router
 const router = new Router(routes);
-window.router = router; // Make router globally available for navigation
 
-// Initialize app
-document.addEventListener('DOMContentLoaded', () => {
-    router.navigate('/');
-});
+// Setup authentication guards
+router.setupAuthGuards();
+
+// Make router globally available for navigation
+window.router = router;
