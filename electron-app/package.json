@@ -6,6 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "set NODE_ENV=development && electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "package": "npm run build:win",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -16,10 +19,31 @@
   ],
   "author": "FES Team",
   "license": "ISC",
+  "build": {
+    "appId": "com.fes.emailmarketingtool",
+    "productName": "FES Email Marketing Tool",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "extraResources": [
+      {
+        "from": "../backend/dist",
+        "to": "app/backend",
+        "filter": ["**/*"]
+      }
+    ]
+  },
   "devDependencies": {
-    "electron": "^39.2.3"
+    "electron": "^39.2.3",
+    "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "lucide": "^0.555.0"
+    "lucide": "^0.555.0",
+    "cross-spawn": "^7.0.3"
   }
 }
