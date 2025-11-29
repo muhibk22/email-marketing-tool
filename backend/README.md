@@ -1,5 +1,3 @@
-
-
 # **Email Marketing Tool — FastAPI Backend**
 
 ## **Project Overview**
@@ -10,33 +8,43 @@ Current functionality:
 
 * User **registration** and **login** with JWT-based authentication
 * `/auth/me` endpoint to get the current logged-in user
-* Modular structure to easily extend with **contacts, groups, and email sending** in the future
+* **Contacts system**: create, read, update, delete contacts (each user sees only their own)
+* **Groups system**: create, read, update, delete groups of contacts
+* **Email sending**: send emails to individual emails or groups via **Amazon SES**
 * Swagger UI is configured to use a **simplified token input** for testing protected routes
+* All MongoDB `ObjectId`s are serialized properly to **avoid internal server errors**
 
 ---
 
 ## **Project Structure**
 
-```
 backend/
 │
 ├─ app/
-│  ├─ main.py
-│  ├─ db/
-│  │  └─ client.py
-│  ├─ core/
-│  │  └─ security.py
-│  ├─ routers/
-│  │  ├─ auth_router.py
-│  │  └─ user_router.py
-│  ├─ services/
-│  │  └─ auth_service.py
-│  └─ schemas/
-│     └─ user_schema.py
+│ ├─ main.py
+│ ├─ db/
+│ │ └─ client.py
+│ ├─ core/
+│ │ └─ security.py
+│ ├─ routers/
+│ │ ├─ auth_router.py
+│ │ ├─ user_router.py
+│ │ ├─ contact_router.py
+│ │ ├─ group_router.py
+│ │ └─ email_router.py
+│ ├─ services/
+│ │ └─ auth_service.py
+│ └─ schemas/
+│ ├─ user_schema.py
+│ ├─ contact_schema.py
+│ ├─ group_schema.py
+│ └─ email_schema.py
 │
 ├─ .env
 └─ README.md
-```
+
+python
+Copy code
 
 ---
 
@@ -46,192 +54,197 @@ backend/
 
 * Entry point for the FastAPI backend
 * Initializes FastAPI app and includes all routers
-* Defines a root endpoint `/` that returns a simple health check message
+* Defines a root endpoint `/` for health check
 
 ```python
+from fastapi import FastAPI
+from app.routers import auth_router, user_router, contact_router, group_router, email_router
+
 app = FastAPI()
+
+# Include all routers
 app.include_router(auth_router.router)
 app.include_router(user_router.router)
+app.include_router(contact_router.router)
+app.include_router(group_router.router)
+app.include_router(email_router.router)
 
 @app.get("/")
 def root():
     return {"message": "Email Marketing Backend Running"}
-```
+2. db/client.py
+Handles MongoDB connection
 
----
+Provides references to all collections
 
-### **2. db/client.py**
-
-* Handles **MongoDB connection**
-* Reads `MONGO_URI` and `DB_NAME` from `.env`
-* Provides a reference to `users_collection` for user operations
-
-```python
+python
+Copy code
 from pymongo import MongoClient
 from decouple import config
 
 MONGO_URI = config("MONGO_URI")
+DB_NAME = config("DB_NAME")
+
 client = MongoClient(MONGO_URI)
-db = client[config("DB_NAME")]
+db = client[DB_NAME]
+
 users_collection = db["users_email_tool"]
-```
+contacts_collection = db["contacts"]
+groups_collection = db["groups"]
+emails_collection = db["emails"]
+3. core/security.py
+JWT-based authentication
 
----
+Password hashing with bcrypt
 
-### **3. core/security.py**
+Swagger-friendly token input to avoid Bearer issues
 
-* Responsible for **authentication and security**
+ObjectIds properly handled in dependencies
 
-* Functions:
+Functions:
 
-  * `hash_password(password)` → hashes a password using bcrypt
-  * `verify_password(password, hashed)` → verifies password against hash
-  * `create_access_token(user_id)` → creates a JWT token valid for 7 days
-  * `get_current_user(token)` → backend dependency for protected routes
-  * `get_current_user_swagger(token)` → simplified dependency for Swagger UI (only asks for JWT token)
+hash_password(password) → hash password
 
-* `OAuth2PasswordBearer` is used for token extraction in the backend
+verify_password(password, hashed) → verify password
 
-* `APIKeyHeader` is used for Swagger to simplify token input
+create_access_token(user_id) → generate JWT valid for 7 days
 
----
+get_current_user_swagger(token) → dependency for protected routes in Swagger
 
-### **4. routers/auth_router.py**
+python
+Copy code
+from passlib.context import CryptContext
+from jose import jwt
+from datetime import datetime, timedelta
+from decouple import config
+from fastapi import HTTPException, Security
+from fastapi.security import APIKeyHeader
+from bson import ObjectId
+from app.db.client import users_collection
 
-* Handles **user registration and login**
-* Implements `/auth/register` and `/auth/login` endpoints
-* Uses `services/auth_service.py` and `schemas/user_schema.py` for validation and business logic
+SECRET_KEY = config("SECRET_KEY")
+ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
----
+def hash_password(password: str):
+    return pwd_context.hash(password)
 
-### **5. routers/user_router.py**
+def verify_password(password: str, hashed: str):
+    return pwd_context.verify(password, hashed)
 
-* Provides `/auth/me` endpoint to get the current logged-in user
-* Uses **Swagger-friendly JWT dependency** (`get_current_user_swagger`)
-* Example response:
+def create_access_token(user_id: str):
+    payload = {"sub": user_id, "exp": datetime.utcnow() + timedelta(days=7)}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
-```json
-{
-  "id": "MongoDB ObjectId",
-  "email": "user@example.com"
-}
-```
+api_key_scheme = APIKeyHeader(name="Authorization", auto_error=True)
 
----
+def get_current_user_swagger(token: str = Security(api_key_scheme)):
+    if token.startswith("Bearer "):
+        token = token[7:]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(401, "Invalid token")
+        user = users_collection.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(401, "User not found")
+        return user
+    except jwt.JWTError:
+        raise HTTPException(401, "Token is invalid or expired")
+4. routers/contact_router.py
+CRUD endpoints for contacts
 
-### **6. services/auth_service.py**
+Returns properly serialized JSON (converts all ObjectId to strings)
 
-* Contains **business logic** for authentication
+Example endpoints:
 
-* Handles:
+pgsql
+Copy code
+POST /contacts/ → create contact
+GET /contacts/ → list contacts
+PUT /contacts/{contact_id} → update contact
+DELETE /contacts/{contact_id} → delete contact
+5. routers/group_router.py
+CRUD endpoints for groups
 
-  * Checking if a user exists
-  * Creating a new user in MongoDB
-  * Verifying passwords during login
-  * Returning JWT token
+Each group contains a list of contact_ids
 
-* Keeps **routers clean** by separating logic from endpoint definitions
+Validation ensures contacts belong to the user
 
----
+ObjectIds serialized for JSON output
 
-### **7. schemas/user_schema.py**
+6. routers/email_router.py
+Sends emails to individual emails or groups via Amazon SES
 
-* Contains **Pydantic models** for validation and type checking
+Logs sent emails in emails_collection
 
-Models:
+ObjectIds serialized to strings
 
-* `UserRegister` → request body for registration (`email`, `password`)
-* `UserLogin` → request body for login (`email`, `password`)
-* `UserResponse` → response model for user info (id, email)
+7. routers/auth_router.py & user_router.py
+/auth/register → register user
 
-Example:
+/auth/login → login and get JWT
 
-```python
-from pydantic import BaseModel, EmailStr
+/auth/me → get current logged-in user
 
-class UserRegister(BaseModel):
-    email: EmailStr
-    password: str
+All use Swagger-friendly JWT dependency
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+8. schemas/
+user_schema.py → registration/login models
 
-class UserResponse(BaseModel):
-    id: str
-    email: EmailStr
-```
+contact_schema.py → ContactCreate, ContactUpdate
 
----
+group_schema.py → GroupCreate, GroupUpdate
 
-### **8. .env**
+email_schema.py → EmailSend (to_emails, group_id, subject, body)
 
-Holds environment variables:
-
-```env
+9. .env
+env
+Copy code
 MONGO_URI=<your MongoDB connection string>
 DB_NAME=<MongoDB database name>
 SECRET_KEY=<JWT secret key>
-```
+AWS_ACCESS_KEY_ID=<your AWS key>
+AWS_SECRET_ACCESS_KEY=<your AWS secret>
+AWS_REGION=<AWS SES region>
+How to Run Backend
+Install dependencies:
 
-* Make sure `DB_NAME` matches the database where `users_email_tool` collection exists
+bash
+Copy code
+pip install fastapi uvicorn pymongo passlib[bcrypt] python-jose python-decouple pydantic[email] boto3
+Start server:
 
----
-
-## **How to Run Backend**
-
-1. Install dependencies:
-
-```bash
-pip install fastapi uvicorn pymongo passlib[bcrypt] python-jose python-decouple pydantic[email]
-```
-
-2. Start server:
-
-```bash
+bash
+Copy code
 cd backend
 python -m uvicorn app.main:app --reload
-```
+Open Swagger UI:
 
-3. Open Swagger UI:
-
-```
+arduino
+Copy code
 http://127.0.0.1:8000/docs
-```
+Test endpoints:
 
-4. Test endpoints:
+Register user → /auth/register
 
-* Register user → `/auth/register`
-* Login → `/auth/login` → get JWT
-* Use **Authorize** in Swagger → paste `Bearer <token>`
-* Test `/auth/me` → returns current user info
+Login → /auth/login → get JWT
 
----
+Authorize in Swagger → paste Bearer <token>
 
-## **Next Steps (Planned)**
+Test /auth/me, /contacts/, /groups/, /email/send
 
-1. Implement **Contacts system**:
+Next Steps (Development Plan)
+Add full email templates (HTML & plain text)
 
-* Add emails
-* Update/delete emails
-* Ensure user isolation (each user sees only their emails)
+Implement scheduled emails
 
-2. Implement **Groups system**:
+Extend Groups to support nested groups or multiple email lists
 
-* Create groups
-* Add emails to groups
-* Send emails to group members via Amazon SES
+Add logging and monitoring for email sending failures
 
-3. Integrate **Amazon SES** for sending emails
+Add unit tests and integration tests
 
-4. Extend Swagger UI to test all protected endpoints with JWT token
-
----
-
-This README now fully describes:
-
-* **Current backend setup**
-* **File structure and purpose**
-* **Authentication flow**
-* **How to continue development**
+Enhance Swagger UI documentation for all endpoints
 
