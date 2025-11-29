@@ -1,3 +1,4 @@
+
 # **Email Marketing Tool — FastAPI Backend**
 
 ## **Project Overview**
@@ -43,9 +44,6 @@ backend/
 ├─ .env
 └─ README.md
 
-python
-Copy code
-
 ---
 
 ## **File Descriptions**
@@ -72,13 +70,15 @@ app.include_router(email_router.router)
 @app.get("/")
 def root():
     return {"message": "Email Marketing Backend Running"}
-2. db/client.py
+```
+
+### **2. db/client.py**
+
 Handles MongoDB connection
 
 Provides references to all collections
 
-python
-Copy code
+```python
 from pymongo import MongoClient
 from decouple import config
 
@@ -92,7 +92,10 @@ users_collection = db["users_email_tool"]
 contacts_collection = db["contacts"]
 groups_collection = db["groups"]
 emails_collection = db["emails"]
-3. core/security.py
+```
+
+### **3. core/security.py**
+
 JWT-based authentication
 
 Password hashing with bcrypt
@@ -103,16 +106,12 @@ ObjectIds properly handled in dependencies
 
 Functions:
 
-hash_password(password) → hash password
+* `hash_password(password)` → hash password
+* `verify_password(password, hashed)` → verify password
+* `create_access_token(user_id)` → generate JWT valid for 7 days
+* `get_current_user_swagger(token)` → dependency for protected routes in Swagger
 
-verify_password(password, hashed) → verify password
-
-create_access_token(user_id) → generate JWT valid for 7 days
-
-get_current_user_swagger(token) → dependency for protected routes in Swagger
-
-python
-Copy code
+```python
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta
@@ -152,99 +151,181 @@ def get_current_user_swagger(token: str = Security(api_key_scheme)):
         return user
     except jwt.JWTError:
         raise HTTPException(401, "Token is invalid or expired")
-4. routers/contact_router.py
-CRUD endpoints for contacts
+```
 
+### **4. routers/contact_router.py**
+
+CRUD endpoints for contacts
 Returns properly serialized JSON (converts all ObjectId to strings)
 
-Example endpoints:
+Endpoints:
 
-pgsql
-Copy code
-POST /contacts/ → create contact
-GET /contacts/ → list contacts
-PUT /contacts/{contact_id} → update contact
-DELETE /contacts/{contact_id} → delete contact
-5. routers/group_router.py
+* `POST /contacts/` → create contact
+* `GET /contacts/` → list contacts
+* `PUT /contacts/{contact_id}` → update contact
+* `DELETE /contacts/{contact_id}` → delete contact
+
+### **5. routers/group_router.py**
+
 CRUD endpoints for groups
-
 Each group contains a list of contact_ids
-
 Validation ensures contacts belong to the user
-
 ObjectIds serialized for JSON output
 
-6. routers/email_router.py
-Sends emails to individual emails or groups via Amazon SES
+### **6. routers/email_router.py**
 
-Logs sent emails in emails_collection
+Handles email sending via Amazon SES
 
-ObjectIds serialized to strings
+Supports **two endpoints**:
 
-7. routers/auth_router.py & user_router.py
-/auth/register → register user
+#### **a) Normal Email — `/email/send`**
 
-/auth/login → login and get JWT
+Send standard HTML email to:
 
-/auth/me → get current logged-in user
+* Manual email addresses (`to_emails`)
+* Contact groups (`group_ids`)
+* All contacts (`send_to_all`)
 
-All use Swagger-friendly JWT dependency
+**Request Body (JSON)**:
 
-8. schemas/
-user_schema.py → registration/login models
+```json
+{
+  "subject": "Hello World",
+  "body": "<p>This is a test email</p>",
+  "to_emails": ["example1@gmail.com", "example2@gmail.com"],
+  "group_ids": ["64fabc12345..."],
+  "send_to_all": false
+}
+```
 
-contact_schema.py → ContactCreate, ContactUpdate
+**Response**:
 
-group_schema.py → GroupCreate, GroupUpdate
+```json
+{
+  "message": "Normal email sent successfully",
+  "recipients": ["example1@gmail.com", "example2@gmail.com"]
+}
+```
 
-email_schema.py → EmailSend (to_emails, group_id, subject, body)
+#### **b) Newsletter Email — `/email/send/newsletter`**
 
-9. .env
-env
-Copy code
+Send newsletter-style email with inline images, optimized for Gmail mobile/desktop.
+
+**Method:** `POST`
+**Content-Type:** `multipart/form-data`
+
+**Form Fields:**
+
+| Field           | Type                     | Description                           |
+| --------------- | ------------------------ | ------------------------------------- |
+| `subject`       | string                   | Email subject                         |
+| `body`          | string                   | Email content in HTML/text            |
+| `to_emails`     | string (comma-separated) | Optional manual emails                |
+| `group_ids`     | string (comma-separated) | Optional contact group IDs            |
+| `send_to_all`   | boolean                  | Optional flag to send to all contacts |
+| `inline_images` | file[]                   | Optional inline images                |
+
+**Example cURL Request:**
+
+```bash
+curl -X POST "http://127.0.0.1:8000/email/send/newsletter" \
+  -H "Authorization: Bearer <token>" \
+  -F "subject=Monthly Update" \
+  -F "body=<p>Hello, check our updates below!</p>" \
+  -F "to_emails=example1@gmail.com,example2@gmail.com" \
+  -F "inline_images=@/path/to/image1.png" \
+  -F "inline_images=@/path/to/image2.jpg"
+```
+
+**Response:**
+
+```json
+{
+  "message": "Newsletter email sent successfully",
+  "recipients": ["example1@gmail.com", "example2@gmail.com"],
+  "inline_images": ["image1.png", "image2.jpg"]
+}
+```
+
+---
+
+### **7. routers/auth_router.py & user_router.py**
+
+* `/auth/register` → register user
+* `/auth/login` → login and get JWT
+* `/auth/me` → get current logged-in user
+
+All use Swagger-friendly JWT dependency.
+
+---
+
+### **8. schemas/**
+
+* `user_schema.py` → registration/login models
+* `contact_schema.py` → ContactCreate, ContactUpdate
+* `group_schema.py` → GroupCreate, GroupUpdate
+* `email_schema.py` → EmailSend (used in normal email endpoint)
+
+---
+
+### **9. .env**
+
+```env
 MONGO_URI=<your MongoDB connection string>
 DB_NAME=<MongoDB database name>
 SECRET_KEY=<JWT secret key>
 AWS_ACCESS_KEY_ID=<your AWS key>
 AWS_SECRET_ACCESS_KEY=<your AWS secret>
 AWS_REGION=<AWS SES region>
-How to Run Backend
+SES_FROM_EMAIL=<your verified SES sender email>
+```
+
+---
+
+## **How to Run Backend**
+
 Install dependencies:
 
-bash
-Copy code
+```bash
 pip install fastapi uvicorn pymongo passlib[bcrypt] python-jose python-decouple pydantic[email] boto3
+```
+
 Start server:
 
-bash
-Copy code
+```bash
 cd backend
 python -m uvicorn app.main:app --reload
+```
+
 Open Swagger UI:
 
-arduino
-Copy code
+```
 http://127.0.0.1:8000/docs
-Test endpoints:
+```
 
-Register user → /auth/register
+---
 
-Login → /auth/login → get JWT
+## **Test Endpoints**
 
-Authorize in Swagger → paste Bearer <token>
+1. Register user → `/auth/register`
+2. Login → `/auth/login` → get JWT
+3. Authorize in Swagger → paste `Bearer <token>`
+4. Test `/auth/me`, `/contacts/`, `/groups/`
+5. Test `/email/send` (normal email)
+6. Test `/email/send/newsletter` (newsletter with optional inline images)
 
-Test /auth/me, /contacts/, /groups/, /email/send
+---
 
-Next Steps (Development Plan)
-Add full email templates (HTML & plain text)
+## **Next Steps (Development Plan)**
 
-Implement scheduled emails
+* Add full email templates (HTML & plain text)
+* Implement scheduled emails
+* Extend Groups to support nested groups or multiple email lists
+* Add logging and monitoring for email sending failures
+* Add unit tests and integration tests
+* Enhance Swagger UI documentation for all endpoints
 
-Extend Groups to support nested groups or multiple email lists
+---
 
-Add logging and monitoring for email sending failures
-
-Add unit tests and integration tests
-
-Enhance Swagger UI documentation for all endpoints
+This README now clearly documents **both email endpoints** for frontend developers.
 
