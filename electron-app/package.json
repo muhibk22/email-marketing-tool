@@ -18,5 +18,8 @@
   "license": "ISC",
   "devDependencies": {
     "electron": "^39.2.3"
+  },
+  "dependencies": {
+    "lucide": "^0.555.0"
   }
 }

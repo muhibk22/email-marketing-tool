@@ -2,7 +2,13 @@ export const ROUTES = {
     HOME: '/',
     LOGIN: '/login',
     REGISTER: '/register',
-    DASHBOARD: '/home'
+    DASHBOARD: '/dashboard',
+    RECIPIENTS: '/recipients',
+    CAMPAIGNS: '/campaigns',
+    MARKETING_EMAIL: '/marketing-email',
+    TRANSACTIONAL_EMAIL: '/transactional-email',
+    AI_GENERATOR: '/ai-generator',
+    EMAIL_LOGS: '/email-logs'
 };
 
 export const STORAGE_KEYS = {
@@ -12,10 +18,24 @@ export const STORAGE_KEYS = {
 };
 
 export const API_ENDPOINTS = {
+    // Auth
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
-    REFRESH: '/auth/refresh'
+    REFRESH: '/auth/refresh',
+    ME: '/auth/me',
+
+    // Contacts (Recipients)
+    CONTACTS: '/contacts',
+    CONTACT_BY_ID: (id) => `/contacts/${id}`,
+
+    // Groups (Campaigns)
+    GROUPS: '/groups',
+    GROUP_BY_ID: (id) => `/groups/${id}`,
+
+    // Email
+    EMAIL_SEND: '/email/send',
+    EMAIL_SEND_NEWSLETTER: '/email/send/newsletter'
 };
 
 export const VALIDATION = {

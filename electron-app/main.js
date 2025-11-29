@@ -11,10 +11,16 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false, // Allow network requests in development
     },
   });
 
   win.loadFile(path.join(__dirname, "src", "index.html"));
+
+  // Open DevTools in development mode
+  if (isDev) {
+    win.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(() => {

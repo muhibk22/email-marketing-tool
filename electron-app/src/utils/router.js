@@ -6,6 +6,7 @@ export class Router {
         this.routes = routes;
         this.appContainer = document.getElementById('app');
         this.guards = {};
+        this._inGuardRedirect = false; // Flag to prevent circular guard redirects
 
         this.navigate = this.navigate.bind(this);
         this.handleHashChange = this.handleHashChange.bind(this);
@@ -35,7 +36,8 @@ export class Router {
             return;
         }
 
-        if (this.guards[cleanPath]) {
+        // Skip guard checks if we're in the middle of a guard redirect
+        if (this.guards[cleanPath] && !this._inGuardRedirect) {
             const canActivate = await this.guards[cleanPath]();
             if (!canActivate) {
                 return;
@@ -70,7 +72,9 @@ export class Router {
         this.addGuard(ROUTES.DASHBOARD, () => {
             if (!authState.isAuthenticated()) {
                 console.log('Not authenticated, redirecting to login');
+                this._inGuardRedirect = true;
                 this.navigate(ROUTES.LOGIN);
+                this._inGuardRedirect = false;
                 return false;
             }
             return true;
@@ -79,7 +83,9 @@ export class Router {
         this.addGuard(ROUTES.LOGIN, () => {
             if (authState.isAuthenticated()) {
                 console.log('Already authenticated, redirecting to dashboard');
+                this._inGuardRedirect = true;
                 this.navigate(ROUTES.DASHBOARD);
+                this._inGuardRedirect = false;
                 return false;
             }
             return true;
@@ -88,7 +94,9 @@ export class Router {
         this.addGuard(ROUTES.REGISTER, () => {
             if (authState.isAuthenticated()) {
                 console.log('Already authenticated, redirecting to dashboard');
+                this._inGuardRedirect = true;
                 this.navigate(ROUTES.DASHBOARD);
+                this._inGuardRedirect = false;
                 return false;
             }
             return true;
