@@ -7,3 +7,4 @@ python-jose
 python-decouple
 pydantic[email]
 email-validator
+boto3
