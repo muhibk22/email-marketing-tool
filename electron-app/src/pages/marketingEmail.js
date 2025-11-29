@@ -7,6 +7,7 @@ import { authState } from '../utils/authState.js';
 import { ROUTES, API_ENDPOINTS } from '../utils/constants.js';
 import { API_BASE_URL } from '../config/config.js';
 import { initIcons } from '../utils/icons.js';
+import { EMAIL_TEMPLATES } from '../utils/templates.js';
 
 export const MarketingEmailPage = {
     render: () => {
@@ -21,9 +22,10 @@ export const MarketingEmailPage = {
                     <p class="page-subtitle">Send newsletters with inline images to your subscribers</p>
                 </div>
 
-                <div class="marketing-email-container">
-                    <form id="marketing-email-form" class="form">
-                        ${FormInput({
+                <div class="marketing-email-layout">
+                    <div class="marketing-email-editor">
+                        <form id="marketing-email-form" class="form">
+                            ${FormInput({
             id: 'email-subject',
             label: 'Email Subject',
             type: 'text',
@@ -31,54 +33,83 @@ export const MarketingEmailPage = {
             required: true
         })}
 
-                        <div class="form-group">
-                            <label class="form-label">Email Body</label>
-                            ${RichTextEditor.render('email-body', 'Compose your newsletter here...')}
-                        </div>
+                        ${FormInput({
+            id: 'email-heading',
+            label: 'Email Heading (Optional)',
+            type: 'text',
+            placeholder: 'e.g. 📢 New Update',
+            required: false
+        })}
 
-                        <div class="form-group">
-                            <label class="form-label">Recipients</label>
-                            <div class="recipient-options">
-                                <label class="radio-label">
-                                    <input type="radio" name="recipient-type" value="campaigns" checked>
-                                    <span>Send to Campaigns</span>
-                                </label>
-                                <label class="radio-label">
-                                    <input type="radio" name="recipient-type" value="all">
-                                    <span>Send to All Subscribers</span>
-                                </label>
+                            <div class="form-group">
+                                <label class="form-label">Email Template</label>
+                                <div class="template-selector">
+                                    <select id="email-template" class="form-select">
+                                        ${Object.entries(EMAIL_TEMPLATES).map(([key, template]) => `
+                                            <option value="${key}">${template.name}</option>
+                                        `).join('')}
+                                    </select>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="form-group" id="campaign-selector-group">
-                            <label class="form-label">Select Campaigns</label>
-                            <select id="campaign-select" class="form-select" multiple size="5">
-                                <option value="">Loading campaigns...</option>
-                            </select>
-                            <p class="form-hint">Hold Ctrl/Cmd to select multiple campaigns</p>
-                        </div>
+                            <div class="form-group">
+                                <label class="form-label">Email Body</label>
+                                ${RichTextEditor.render('email-body', 'Compose your newsletter here...')}
+                            </div>
 
-                        <div class="form-group">
-                            <label class="form-label">Inline Images (Optional)</label>
-                            <p class="form-hint">Add images that will be displayed in your newsletter</p>
-                            <input type="file" id="inline-images" class="form-input" multiple accept="image/*">
-                            <div id="image-preview" class="image-preview-container"></div>
-                        </div>
+                            <div class="form-group">
+                                <label class="form-label">Recipients</label>
+                                <div class="recipient-options">
+                                    <label class="radio-label">
+                                        <input type="radio" name="recipient-type" value="campaigns" checked>
+                                        <span>Send to Campaigns</span>
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="recipient-type" value="all">
+                                        <span>Send to All Subscribers</span>
+                                    </label>
+                                </div>
+                            </div>
 
-                        <div class="form-actions">
-                            ${Button({
+                            <div class="form-group" id="campaign-selector-group">
+                                <label class="form-label">Select Campaigns</label>
+                                <select id="campaign-select" class="form-select" multiple size="5">
+                                    <option value="">Loading campaigns...</option>
+                                </select>
+                                <p class="form-hint">Hold Ctrl/Cmd to select multiple campaigns</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Inline Images (Optional)</label>
+                                <p class="form-hint">Add images that will be displayed in your newsletter</p>
+                                <input type="file" id="inline-images" class="form-input" multiple accept="image/*">
+                                <div id="image-preview" class="image-preview-container"></div>
+                            </div>
+
+                            <div class="form-actions">
+                                ${Button({
             id: 'send-newsletter-btn',
             text: 'Send Newsletter',
             type: 'submit',
             className: 'btn btn-primary btn-lg'
         })}
-                        </div>
-                    </form>
-
-                    <div id="send-results" class="send-results" style="display: none;">
-                        <h3>Send Results</h3>
-                        <div id="results-content"></div>
+                            </div>
+                        </form>
                     </div>
+
+                    <div class="marketing-email-preview">
+                        <div class="preview-header">
+                            <h3><i data-lucide="eye"></i> Live Preview</h3>
+                        </div>
+                        <div class="preview-frame-container">
+                            <iframe id="email-preview-frame" title="Email Preview"></iframe>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="send-results" class="send-results" style="display: none;">
+                    <h3>Send Results</h3>
+                    <div id="results-content"></div>
                 </div>
             </div>
         `;
@@ -123,6 +154,93 @@ export const MarketingEmailPage = {
             e.preventDefault();
             await MarketingEmailPage.handleSendNewsletter();
         });
+
+        // Setup live preview listeners
+        const editor = document.getElementById('email-body');
+        const templateSelect = document.getElementById('email-template');
+        const headingInput = document.getElementById('email-heading');
+        const imageInputForPreview = document.getElementById('inline-images');
+
+        const updatePreview = () => {
+            MarketingEmailPage.updatePreview();
+        };
+
+        if (editor) {
+            editor.addEventListener('input', updatePreview);
+            editor.addEventListener('blur', updatePreview);
+        }
+
+        if (templateSelect) {
+            templateSelect.addEventListener('change', updatePreview);
+        }
+
+        if (headingInput) {
+            headingInput.addEventListener('input', updatePreview);
+        }
+
+        if (imageInputForPreview) {
+            imageInputForPreview.addEventListener('change', updatePreview);
+        }
+
+        // Initial preview
+        updatePreview();
+    },
+
+    async updatePreview() {
+        const frame = document.getElementById('email-preview-frame');
+        if (!frame) return;
+
+        const editorContent = RichTextEditor.getHTML('email-body');
+        const templateKey = document.getElementById('email-template')?.value || 'modern';
+        const heading = document.getElementById('email-heading')?.value;
+
+        // Use the selected template to generate HTML
+        // If content is empty, show some placeholder text in preview
+        const contentToRender = editorContent && editorContent.trim() !== ''
+            ? editorContent
+            : '<p style="color:#999;text-align:center;font-style:italic;">Start typing to see preview...</p>';
+
+        let fullHtml = EMAIL_TEMPLATES[templateKey].render(contentToRender, heading || undefined);
+
+        // Handle inline images for preview
+        const imageInput = document.getElementById('inline-images');
+        if (imageInput && imageInput.files && imageInput.files.length > 0) {
+            const files = Array.from(imageInput.files);
+            let imageRows = '';
+
+            // Process files to Data URIs
+            const readFile = (file) => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            for (const file of files) {
+                const dataUri = await readFile(file);
+                imageRows += `
+                <tr>
+                    <td style="padding: 20px 0;">
+                        <img src="${dataUri}" width="100%" style="display:block;border-radius:12px;margin-top:20px;" />
+                    </td>
+                </tr>
+                `;
+            }
+
+            // Inject images into placeholder
+            if (fullHtml.includes('<!-- INLINE_IMAGES_PLACEHOLDER -->')) {
+                fullHtml = fullHtml.replace('<!-- INLINE_IMAGES_PLACEHOLDER -->', imageRows);
+            } else {
+                fullHtml += imageRows;
+            }
+        }
+
+        // Write to iframe
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        doc.open();
+        doc.write(fullHtml);
+        doc.close();
     },
 
     async loadCampaigns() {
@@ -174,7 +292,8 @@ export const MarketingEmailPage = {
 
     async handleSendNewsletter() {
         const subject = document.getElementById('email-subject').value.trim();
-        const body = RichTextEditor.getHTML('email-body');
+        const editorContent = RichTextEditor.getHTML('email-body');
+        const templateKey = document.getElementById('email-template').value;
         const recipientType = document.querySelector('input[name="recipient-type"]:checked').value;
         const campaignSelect = document.getElementById('campaign-select');
         const selectedCampaigns = Array.from(campaignSelect.selectedOptions).map(opt => opt.value);
@@ -186,7 +305,7 @@ export const MarketingEmailPage = {
             return;
         }
 
-        if (!body || body.trim() === '') {
+        if (!editorContent || editorContent.trim() === '') {
             alert('Please compose your newsletter');
             return;
         }
@@ -210,7 +329,11 @@ export const MarketingEmailPage = {
             // Build FormData for multipart/form-data
             const formData = new FormData();
             formData.append('subject', subject);
-            formData.append('body', body);
+
+            // Generate full HTML using selected template
+            const heading = document.getElementById('email-heading')?.value;
+            const fullHtml = EMAIL_TEMPLATES[templateKey].render(editorContent, heading || undefined);
+            formData.append('body', fullHtml);
 
             if (recipientType === 'campaigns') {
                 formData.append('group_ids', selectedCampaigns.join(','));

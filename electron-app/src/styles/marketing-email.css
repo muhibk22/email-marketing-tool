@@ -1,0 +1,70 @@
+/* Marketing Email Layout */
+.marketing-email-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xl);
+    align-items: start;
+}
+
+.marketing-email-editor {
+    background: var(--bg-card);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+}
+
+.marketing-email-preview {
+    background: var(--bg-card);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    position: sticky;
+    top: var(--spacing-xl);
+    height: calc(100vh - 140px);
+    display: flex;
+    flex-direction: column;
+}
+
+.preview-header {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.preview-header h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin: 0;
+}
+
+.preview-frame-container {
+    flex: 1;
+    background: #f0f0f0;
+    /* Neutral background for email context */
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+#email-preview-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .marketing-email-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .marketing-email-preview {
+        height: 600px;
+        position: static;
+    }
+}

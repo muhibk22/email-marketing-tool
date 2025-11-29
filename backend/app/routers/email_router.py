@@ -27,48 +27,8 @@ MAX_EMAIL_SIZE = 9 * 1024 * 1024
 # -------------------------
 # Newsletter HTML builder
 # -------------------------
-def build_newsletter_html(body_text: str, inline_cids: list):
-    image_rows = ""
-    for cid in inline_cids:
-        image_rows += f"""
-        <tr>
-            <td style="padding: 20px 0;">
-                <img src="cid:{cid}" width="100%" style="display:block;border-radius:12px;" />
-            </td>
-        </tr>
-        """
+# REMOVED: Template logic moved to frontend
 
-    return f"""
-<!DOCTYPE html>
-<html>
-<body style="margin:0;padding:0;background:#f2f2f2;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f2f2f2;padding:25px 0;">
-  <tr>
-    <td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;padding:25px;">
-        <tr>
-          <td align="center" style="font-size:24px;font-weight:bold;color:#333;padding-bottom:15px;">
-            📢 New Update
-          </td>
-        </tr>
-        <tr>
-          <td style="font-size:16px;color:#444;line-height:1.6;">
-            {body_text}
-          </td>
-        </tr>
-        {image_rows}
-        <tr>
-          <td align="center" style="font-size:12px;color:#888;padding-top:25px;">
-            Sent automatically · © 2025
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>
-"""
 
 
 # -------------------------
@@ -209,7 +169,29 @@ async def send_newsletter_email(
         inline_files.append(file.filename)
 
     # Build HTML
-    final_html = build_newsletter_html(body, inline_cids)
+    # The body now contains the full HTML from the frontend
+    final_html = body
+
+    # Generate image rows HTML
+    image_rows = ""
+    for cid in inline_cids:
+        image_rows += f"""
+        <tr>
+            <td style="padding: 20px 0;">
+                <img src="cid:{cid}" width="100%" style="display:block;border-radius:12px;margin-top:20px;" />
+            </td>
+        </tr>
+        """
+
+    # Inject images into placeholder or append to body
+    if "<!-- INLINE_IMAGES_PLACEHOLDER -->" in final_html:
+        final_html = final_html.replace("<!-- INLINE_IMAGES_PLACEHOLDER -->", image_rows)
+    elif image_rows:
+        # Fallback: append before closing body tag
+        if "</body>" in final_html:
+            final_html = final_html.replace("</body>", f"{image_rows}</body>")
+        else:
+            final_html += image_rows
 
     # Build MIME
     root = MIMEMultipart("related")
@@ -250,3 +232,27 @@ async def send_newsletter_email(
         "recipients": recipients,
         "inline_images": inline_files
     }
+
+
+
+# Get Email Logs endpoint
+
+@router.get("/logs")
+def get_email_logs(user=Depends(get_current_user_swagger)):
+    """
+    Fetch email logs for the current user.
+    """
+    logs = list(emails_collection.find(
+        {"user_id": ObjectId(user["_id"])}
+    ).sort("created_at", -1))
+
+    # Convert ObjectId to string and handle other non-serializable fields
+    for log in logs:
+        log["id"] = str(log["_id"])
+        del log["_id"]
+        log["user_id"] = str(log["user_id"])
+        # Truncate body for list view
+        if "body" in log and len(log["body"]) > 100:
+            log["body"] = log["body"][:100] + "..."
+
+    return logs

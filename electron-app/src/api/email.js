@@ -6,5 +6,10 @@ export const emailApi = {
     // data: { subject, body, to_emails?, group_id? }
     async sendEmail(data) {
         return await client.post(API_ENDPOINTS.EMAIL_SEND, data, true);
+    },
+
+    // Get sent email logs
+    async getEmailLogs() {
+        return await client.get(API_ENDPOINTS.EMAIL_LOGS, true);
     }
 };
