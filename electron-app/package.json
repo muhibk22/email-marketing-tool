@@ -1,14 +1,20 @@
 {
   "name": "email-marketing-tool",
   "version": "1.0.0",
-  "description": "",
+  "description": "FES Email Marketing Tool - Desktop application for email marketing campaigns",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron ."
+    "start": "electron .",
+    "dev": "set NODE_ENV=development && electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "email",
+    "marketing",
+    "electron",
+    "desktop"
+  ],
+  "author": "FES Team",
   "license": "ISC",
   "devDependencies": {
     "electron": "^39.2.3"
