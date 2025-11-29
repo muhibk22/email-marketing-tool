@@ -20,7 +20,7 @@ export const Sidebar = {
                 <div class="sidebar-header">
                     <h2 class="sidebar-logo">
                         <i data-lucide="mail-open"></i>
-                        EmailHub
+                        FES Email Tool
                     </h2>
                 </div>
                 <nav class="sidebar-nav">
