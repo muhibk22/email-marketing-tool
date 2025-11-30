@@ -23,7 +23,8 @@ import {
     Eraser,
     AlertTriangle,
     Copy,
-    Eye
+    Eye,
+    Upload
 } from 'lucide';
 
 /**
@@ -56,7 +57,8 @@ export function initIcons() {
             Eraser,
             AlertTriangle,
             Copy,
-            Eye
+            Eye,
+            Upload
         }
     });
 }

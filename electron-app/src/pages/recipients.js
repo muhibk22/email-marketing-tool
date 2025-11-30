@@ -4,6 +4,7 @@ import { Modal } from '../components/Modal.js';
 import { FormInput } from '../components/FormInput.js';
 import { Button } from '../components/Button.js';
 import { contactsApi } from '../api/contacts.js';
+import { groupsApi } from '../api/groups.js';
 import { authState } from '../utils/authState.js';
 import { ROUTES } from '../utils/constants.js';
 import { initIcons } from '../utils/icons.js';
@@ -18,9 +19,14 @@ export const RecipientsPage = {
                         <h1 class="page-title">Recipients</h1>
                         <p class="page-subtitle">Manage your email contacts</p>
                     </div>
-                    <button class="btn btn-primary" id="add-recipient-btn">
-                        <i data-lucide="plus"></i> Add Recipient
-                    </button>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" id="import-recipient-btn" style="margin-right: 10px;">
+                            <i data-lucide="upload"></i> Import CSV/TXT
+                        </button>
+                        <button class="btn btn-primary" id="add-recipient-btn">
+                            <i data-lucide="plus"></i> Add Recipient
+                        </button>
+                    </div>
                 </div>
 
                 <div class="search-bar">
@@ -105,8 +111,81 @@ export const RecipientsPage = {
                         </form>
                     `
         })}
+
+                ${Modal.render({
+            id: 'import-recipient-modal',
+            title: 'Import Recipients',
+            children: `
+                        <form id="import-recipient-form" class="form">
+                            <div class="form-group">
+                                <label class="form-label">Select File (CSV or TXT)</label>
+                                <input type="file" id="import-file" class="form-input" accept=".csv,.txt" required>
+                                <p class="form-hint">CSV format: email,name OR just email column. TXT: one email per line.</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Add to Campaign (Optional)</label>
+                                <select id="import-campaign-select" class="form-select">
+                                    <option value="">Select a campaign...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-actions">
+                                ${Button({
+                id: 'cancel-import-recipient',
+                text: 'Cancel',
+                type: 'button',
+                className: 'btn btn-secondary'
+            })}
+                                ${Button({
+                id: 'submit-import-recipient',
+                text: 'Import',
+                type: 'submit',
+                className: 'btn btn-primary'
+            })}
+                            </div>
+                        </form>
+                    `
+        })}
+
+                ${Modal.render({
+            id: 'import-preview-modal',
+            title: 'Confirm Import',
+            children: `
+                        <div id="import-preview-content">
+                            <p class="mb-4">Found <strong id="preview-count">0</strong> contacts. Here is a preview:</p>
+                            <div class="table-container" style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="preview-table-body">
+                                        <!-- Preview rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-actions">
+                                ${Button({
+                id: 'cancel-preview-import',
+                text: 'Cancel',
+                type: 'button',
+                className: 'btn btn-secondary'
+            })}
+                                ${Button({
+                id: 'confirm-import-btn',
+                text: 'Proceed & Import',
+                type: 'button',
+                className: 'btn btn-primary'
+            })}
+                            </div>
+                        </div>
+                    `
+        })}
             </div>
-        `;
+    `;
     },
 
     afterRender: async () => {
@@ -119,6 +198,8 @@ export const RecipientsPage = {
         // Setup modals
         Modal.setupCloseHandlers('add-recipient-modal');
         Modal.setupCloseHandlers('edit-recipient-modal');
+        Modal.setupCloseHandlers('import-recipient-modal');
+        Modal.setupCloseHandlers('import-preview-modal');
 
         // Initialize icons
         initIcons();
@@ -131,12 +212,24 @@ export const RecipientsPage = {
             Modal.show('add-recipient-modal');
         });
 
+        document.getElementById('import-recipient-btn')?.addEventListener('click', async () => {
+            Modal.show('import-recipient-modal');
+            await RecipientsPage.loadCampaignsForImport();
+        });
+
         // Setup cancel buttons
         document.getElementById('cancel-add-recipient')?.addEventListener('click', () => {
             Modal.hide('add-recipient-modal');
         });
         document.getElementById('cancel-edit-recipient')?.addEventListener('click', () => {
             Modal.hide('edit-recipient-modal');
+        });
+        document.getElementById('cancel-import-recipient')?.addEventListener('click', () => {
+            Modal.hide('import-recipient-modal');
+        });
+        document.getElementById('cancel-preview-import')?.addEventListener('click', () => {
+            Modal.hide('import-preview-modal');
+            Modal.show('import-recipient-modal'); // Go back to selection
         });
 
         // Setup add form
@@ -151,6 +244,18 @@ export const RecipientsPage = {
             await RecipientsPage.handleEditRecipient();
         });
 
+        // Setup import form
+        document.getElementById('import-recipient-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await RecipientsPage.handleParseImport();
+        });
+
+        // Setup confirm import
+        document.getElementById('confirm-import-btn')?.addEventListener('click', async (e) => {
+            e.preventDefault(); // Prevent any default form submission
+            await RecipientsPage.handleConfirmImport();
+        });
+
         // Setup search
         document.getElementById('search-recipients')?.addEventListener('input', (e) => {
             RecipientsPage.filterRecipients(e.target.value);
@@ -158,6 +263,8 @@ export const RecipientsPage = {
     },
 
     recipients: [],
+    parsedContacts: [],
+    selectedGroupId: null,
 
     async loadRecipients() {
         const tableContainer = document.getElementById('recipients-table');
@@ -168,9 +275,7 @@ export const RecipientsPage = {
             RecipientsPage.renderTable();
         } catch (error) {
             console.error('Error loading recipients:', error);
-            tableContainer.innerHTML = `
-                <div class="error-message">Failed to load recipients: ${error.message}</div>
-            `;
+            tableContainer.innerHTML = `<div class="error-message">Failed to load recipients: ${error.message}</div>`;
         }
     },
 
@@ -329,6 +434,100 @@ export const RecipientsPage = {
             await RecipientsPage.loadRecipients();
         } catch (error) {
             alert('Failed to delete recipient: ' + error.message);
+        }
+    },
+
+    async loadCampaignsForImport() {
+        const select = document.getElementById('import-campaign-select');
+        if (!select) return;
+
+        try {
+            const campaigns = await groupsApi.getGroups();
+            select.innerHTML = '<option value="">Select a campaign...</option>' +
+                campaigns.map(c => `<option value="${c.id}">${c.group_name}</option>`).join('');
+        } catch (error) {
+            console.error('Failed to load campaigns:', error);
+            select.innerHTML = '<option value="">Error loading campaigns</option>';
+        }
+    },
+
+    async handleParseImport() {
+        const fileInput = document.getElementById('import-file');
+        const campaignSelect = document.getElementById('import-campaign-select');
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Please select a file');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        RecipientsPage.selectedGroupId = campaignSelect.value;
+        const submitBtn = document.getElementById('submit-import-recipient');
+
+        try {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Parsing...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const result = await contactsApi.parseImportContacts(formData);
+
+            RecipientsPage.parsedContacts = result.contacts;
+
+            // Show preview
+            Modal.hide('import-recipient-modal');
+            RecipientsPage.showPreviewModal();
+
+        } catch (error) {
+            alert('Parse failed: ' + error.message);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Import';
+        }
+    },
+
+    showPreviewModal() {
+        const contacts = RecipientsPage.parsedContacts;
+        document.getElementById('preview-count').textContent = contacts.length;
+
+        const tbody = document.getElementById('preview-table-body');
+        tbody.innerHTML = contacts.slice(0, 10).map(c => `
+            <tr>
+                <td>${c.name}</td>
+                <td>${c.email}</td>
+            </tr>
+        `).join('') + (contacts.length > 10 ? `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">...and ${contacts.length - 10} more</td></tr>` : '');
+
+        Modal.show('import-preview-modal');
+    },
+
+    async handleConfirmImport() {
+        const btn = document.getElementById('confirm-import-btn');
+
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+
+            const result = await contactsApi.bulkCreateContacts({
+                contacts: RecipientsPage.parsedContacts,
+                group_id: RecipientsPage.selectedGroupId
+            });
+
+            alert(`Import successful!\nAdded: ${result.added_count}\nTotal Processed: ${result.total_processed}`);
+
+            Modal.hide('import-preview-modal');
+            document.getElementById('import-recipient-form').reset();
+            RecipientsPage.parsedContacts = [];
+            RecipientsPage.selectedGroupId = null;
+
+            await RecipientsPage.loadRecipients();
+
+        } catch (error) {
+            alert('Import failed: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Proceed & Import';
         }
     }
 };
