@@ -175,13 +175,15 @@ async def send_newsletter_email(
     # Generate image rows HTML
     image_rows = ""
     for cid in inline_cids:
-        image_rows += f"""
-        <tr>
-            <td style="padding: 20px 0;">
-                <img src="cid:{cid}" width="100%" style="display:block;border-radius:12px;margin-top:20px;" />
-            </td>
-        </tr>
-        """
+        # Only add to bottom list if NOT already inline in the body
+        if f"cid:{cid}" not in final_html:
+            image_rows += f"""
+            <tr>
+                <td style="padding: 20px 0;">
+                    <img src="cid:{cid}" width="100%" style="display:block;border-radius:12px;margin-top:20px;" />
+                </td>
+            </tr>
+            """
 
     # Inject images into placeholder or append to body
     if "<!-- INLINE_IMAGES_PLACEHOLDER -->" in final_html:

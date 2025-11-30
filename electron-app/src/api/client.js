@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '../config/config.js';
 import { authState } from '../utils/authState.js';
 
-class ApiClient {
+export class ApiClient {
     constructor(baseUrl) {
         this.baseUrl = baseUrl;
     }

@@ -5,18 +5,42 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let backendProcess = null;
 
-function startBackend() {
-  const backendPath = isDev 
-    ? path.join(__dirname, '..', 'backend', 'run_server.exe')
-    : path.join(process.resourcesPath, 'app', 'backend', 'run_server.exe');
-  
-  console.log('Starting backend from:', backendPath);
-  
-  backendProcess = spawn(backendPath, [], {
-    stdio: 'pipe',
-    windowsHide: false,
-    detached: false
+
+// At the top of your main.js
+if (process.env.NODE_ENV !== 'production') {
+  require('electron-reload')(__dirname, {
+    electron: require(`${__dirname}/node_modules/electron`)
   });
+}
+
+function startBackend() {
+  let command, args, options;
+
+  if (isDev) {
+    // In development, run Python directly with uvicorn
+    const backendDir = path.join(__dirname, '..', 'backend');
+    command = 'uvicorn';
+    args = ['app.main:app', '--reload', '--host', '0.0.0.0', '--port', '8000'];
+    options = {
+      cwd: backendDir,
+      stdio: 'pipe',
+      shell: true
+    };
+    console.log('Starting backend in DEV mode with uvicorn from:', backendDir);
+  } else {
+    // In production, use the compiled .exe
+    const backendPath = path.join(process.resourcesPath, 'app', 'backend', 'run_server.exe');
+    command = backendPath;
+    args = [];
+    options = {
+      stdio: 'pipe',
+      windowsHide: false,
+      detached: false
+    };
+    console.log('Starting backend in PRODUCTION mode from:', backendPath);
+  }
+
+  backendProcess = spawn(command, args, options);
 
   backendProcess.stdout.on('data', (data) => {
     console.log(`Backend stdout: ${data}`);
@@ -28,6 +52,10 @@ function startBackend() {
 
   backendProcess.on('close', (code) => {
     console.log(`Backend process exited with code ${code}`);
+  });
+
+  backendProcess.on('error', (err) => {
+    console.error('Failed to start backend:', err);
   });
 }
 
@@ -66,7 +94,7 @@ function createWindow() {
 app.whenReady().then(() => {
   // Start the backend server
   startBackend();
-  
+
   // Create the main window
   createWindow();
 

@@ -36,7 +36,9 @@ export const API_ENDPOINTS = {
     // Email
     EMAIL_SEND: '/email/send',
     EMAIL_SEND_NEWSLETTER: '/email/send/newsletter',
-    EMAIL_LOGS: '/email/logs'
+
+    // AI
+    AI_GENERATE: '/ai-email/generate'
 };
 
 export const VALIDATION = {
