@@ -4,6 +4,7 @@ import { Card } from '../components/Card.js';
 import { ROUTES } from '../utils/constants.js';
 import { contactsApi } from '../api/contacts.js';
 import { groupsApi } from '../api/groups.js';
+import { emailApi } from '../api/email.js';
 import { initIcons } from '../utils/icons.js';
 
 export const HomePage = {
@@ -94,9 +95,10 @@ export const HomePage = {
         if (!statsContainer) return;
 
         try {
-            const [contacts, groups] = await Promise.all([
+            const [contacts, groups, logs] = await Promise.all([
                 contactsApi.getContacts(),
-                groupsApi.getGroups()
+                groupsApi.getGroups(),
+                emailApi.getEmailLogs()
             ]);
 
             const totalRecipients = contacts.length;
@@ -105,6 +107,13 @@ export const HomePage = {
             // Calculate total recipients in campaigns
             const totalInCampaigns = groups.reduce((sum, group) => {
                 return sum + (group.contact_ids ? group.contact_ids.length : 0);
+            }, 0);
+
+            // Calculate total emails sent
+            const totalEmailsSent = logs.reduce((sum, log) => {
+                // Use sent_count if available (for newsletters), otherwise count sent_to array
+                const count = log.sent_count !== undefined ? log.sent_count : (log.sent_to ? log.sent_to.length : 0);
+                return sum + count;
             }, 0);
 
             statsContainer.innerHTML = `
@@ -128,8 +137,7 @@ export const HomePage = {
             })}
                 ${Card({
                 title: 'Emails Sent',
-                subtitle: 'No logs API available',
-                value: 'N/A',
+                value: totalEmailsSent.toString(),
                 icon: 'mail',
                 className: 'stat-card stat-emails'
             })}
