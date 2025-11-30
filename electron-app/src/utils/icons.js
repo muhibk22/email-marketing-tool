@@ -22,7 +22,8 @@ import {
     Link,
     Eraser,
     AlertTriangle,
-    Copy
+    Copy,
+    Eye
 } from 'lucide';
 
 /**
@@ -54,7 +55,8 @@ export function initIcons() {
             Link,
             Eraser,
             AlertTriangle,
-            Copy
+            Copy,
+            Eye
         }
     });
 }

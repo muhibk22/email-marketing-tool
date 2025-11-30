@@ -23,6 +23,7 @@ export const EMAIL_TEMPLATES = {
         <tr>
           <td align="center" style="font-size:12px;color:#888;padding-top:25px;border-top: 1px solid #f0f0f0;">
             <p style="margin:0;">FES Gateway ${new Date().getFullYear()}</p>
+            <!-- UNSUBSCRIBE_PLACEHOLDER -->
           </td>
         </tr>
       </table>
@@ -62,6 +63,7 @@ export const EMAIL_TEMPLATES = {
             <p style="font-size: 11px; color: #adb5bd; font-style: italic;">
               This message is intended for the addressee only and may contain confidential information.
             </p>
+            <!-- UNSUBSCRIBE_PLACEHOLDER -->
           </td>
         </tr>
       </table>
@@ -91,6 +93,7 @@ export const EMAIL_TEMPLATES = {
         <tr>
           <td style="padding-top: 40px; font-size: 12px; color: #999; text-align: center; border-top: 1px solid #eee; margin-top: 40px;">
             <p style="letter-spacing: 1px; text-transform: uppercase;">FES Gateway ${new Date().getFullYear()}</p>
+            <!-- UNSUBSCRIBE_PLACEHOLDER -->
           </td>
         </tr>
       </table>

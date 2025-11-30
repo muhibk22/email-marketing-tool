@@ -93,7 +93,7 @@ def send_normal_email(data: EmailSend, user=Depends(get_current_user_swagger)):
         "subject": data.subject,
         "body": data.body,
         "sent_to": recipients,
-        "created_at": datetime.datetime.utcnow(),
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
         "status": "success"
     })
 
@@ -148,7 +148,9 @@ async def send_newsletter_email(
     inline_cids = []
     inline_files = []
     inline_images = [f for f in (inline_images or []) if getattr(f, "filename", None)]
-    image_parts = []
+    
+    # Store image data for reuse
+    processed_images = []
 
     total_size = 0
     for file in inline_images:
@@ -161,10 +163,14 @@ async def send_newsletter_email(
             raise HTTPException(400, "Email too large for SES.")
 
         cid = file.filename.replace(" ", "_")
-        img = MIMEImage(content)
-        img.add_header("Content-ID", f"<{cid}>")
-        img.add_header("Content-Disposition", "inline", filename=file.filename)
-        image_parts.append(img)
+        
+        # Store for loop
+        processed_images.append({
+            "content": content,
+            "cid": cid,
+            "filename": file.filename
+        })
+        
         inline_cids.append(cid)
         inline_files.append(file.filename)
 
@@ -195,43 +201,109 @@ async def send_newsletter_email(
         else:
             final_html += image_rows
 
-    # Build MIME
-    root = MIMEMultipart("related")
-    root["Subject"] = subject
-    root["From"] = config("SES_FROM_EMAIL")
-    root["To"] = ", ".join(recipients)
+    # Build MIME base
+    base_root = MIMEMultipart("related")
+    base_root["Subject"] = subject
+    base_root["From"] = config("SES_FROM_EMAIL")
+    
+    # We will clone this for each recipient or rebuild parts
+    # Actually, to be safe and avoid shared state issues with MIME objects, 
+    # let's build the common parts first (images) and then loop.
 
-    alt = MIMEMultipart("alternative")
-    root.attach(alt)
-    alt.attach(MIMEText(final_html, "html", "utf-8"))
+    # Send to each recipient individually
+    sent_count = 0
+    failed_count = 0
+    
+    for recipient_email in recipients:
+        try:
+            # 1. Prepare Body with Unsubscribe Link
+            unsubscribe_url = f"http://13.61.21.175:9000/unsubscribe?email={recipient_email}"
+            
+            unsubscribe_footer = f"""
+            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #888;">
+                <p>You received this email because you are subscribed to our newsletter.</p>
+                <p><a href="{unsubscribe_url}" style="color: #888; text-decoration: underline;">Unsubscribe</a></p>
+            </div>
+            """
+            
+            # Inject footer safely
+            current_html = final_html
+            if "<!-- UNSUBSCRIBE_PLACEHOLDER -->" in current_html:
+                # Use the placeholder
+                # We use a simpler footer since it's inside the template's footer area
+                simple_footer = f"""
+                <div style="margin-top: 10px; font-size: 11px; color: #888;">
+                    <p>You received this email because you are subscribed to our newsletter.</p>
+                    <p><a href="{unsubscribe_url}" style="color: #888; text-decoration: underline;">Unsubscribe</a></p>
+                </div>
+                """
+                current_html = current_html.replace("<!-- UNSUBSCRIBE_PLACEHOLDER -->", simple_footer)
+            elif "</body>" in current_html:
+                # Insert before closing body tag (Fallback)
+                current_html = current_html.replace("</body>", f"{unsubscribe_footer}</body>")
+            else:
+                # Append if no body tag (fragment)
+                current_html += unsubscribe_footer
 
-    for img in image_parts:
-        root.attach(img)
+            # 2. Build MIME for this recipient
+            msg = MIMEMultipart("related")
+            msg["Subject"] = subject
+            msg["From"] = config("SES_FROM_EMAIL")
+            msg["To"] = recipient_email
+            
+            # Add Promotional/Bulk Headers
+            msg.add_header("Precedence", "bulk")
+            msg.add_header("X-Auto-Response-Suppress", "OOF, DR, RN, NRN, AutoReply")
+            msg.add_header("List-Unsubscribe", f"<{unsubscribe_url}>")
+            msg.add_header("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
 
-    # Send via SES
-    try:
-        ses.send_raw_email(
-            Source=config("SES_FROM_EMAIL"),
-            Destinations=recipients,
-            RawMessage={"Data": root.as_string()}
-        )
-    except Exception as e:
-        raise HTTPException(500, f"Newsletter email sending failed: {str(e)}")
+            alt = MIMEMultipart("alternative")
+            msg.attach(alt)
+            alt.attach(MIMEText(current_html, "html", "utf-8"))
 
-    # Log
+            # Attach inline images
+            for img_data in processed_images:
+                img = MIMEImage(img_data["content"])
+                img.add_header("Content-ID", f"<{img_data['cid']}>")
+                img.add_header("Content-Disposition", "inline", filename=img_data["filename"])
+                msg.attach(img)
+
+            # Send via SES
+            ses.send_raw_email(
+                Source=config("SES_FROM_EMAIL"),
+                Destinations=[recipient_email],
+                RawMessage={"Data": msg.as_string()}
+            )
+            sent_count += 1
+            
+        except Exception as e:
+            print(f"Failed to send to {recipient_email}: {e}")
+            failed_count += 1
+            continue
+            
+        except Exception as e:
+            print(f"Failed to send to {recipient_email}: {e}")
+            failed_count += 1
+            continue
+
+    # Log (summary)
     emails_collection.insert_one({
         "user_id": ObjectId(user["_id"]),
         "subject": subject,
         "body": body,
         "sent_to": recipients,
         "inline_images": inline_files,
-        "created_at": datetime.datetime.utcnow(),
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
         "status": "success",
+        "sent_count": sent_count,
+        "failed_count": failed_count
     })
 
     return {
         "message": "Newsletter email sent successfully",
         "recipients": recipients,
+        "recipients_count": len(recipients),
+        "sent_count": sent_count,
         "inline_images": inline_files
     }
 
@@ -253,6 +325,12 @@ def get_email_logs(user=Depends(get_current_user_swagger)):
         log["id"] = str(log["_id"])
         del log["_id"]
         log["user_id"] = str(log["user_id"])
+        
+        # Ensure created_at is timezone aware (UTC)
+        if "created_at" in log and isinstance(log["created_at"], datetime.datetime):
+            if log["created_at"].tzinfo is None:
+                log["created_at"] = log["created_at"].replace(tzinfo=datetime.timezone.utc)
+        
         # Truncate body for list view
         if "body" in log and len(log["body"]) > 100:
             log["body"] = log["body"][:100] + "..."
@@ -364,7 +442,7 @@ async def send_transactional_email(
         "body": body,
         "sent_to": recipients,
         "attachments": attachment_names,
-        "created_at": datetime.datetime.utcnow(),
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
         "status": "success",
         "type": "transactional"
     })

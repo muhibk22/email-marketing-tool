@@ -38,7 +38,8 @@ export const API_ENDPOINTS = {
     EMAIL_SEND_NEWSLETTER: '/email/send/newsletter',
 
     // AI
-    AI_GENERATE: '/ai-email/generate'
+    AI_GENERATE: '/ai-email/generate',
+    EMAIL_LOGS: '/email/logs'
 };
 
 export const VALIDATION = {
