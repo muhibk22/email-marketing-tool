@@ -6,8 +6,10 @@
   "scripts": {
     "start": "electron .",
     "dev": "set NODE_ENV=development && electron .",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
+    "build": "set NODE_ENV=production && electron-builder",
+    "build:win": "set NODE_ENV=production && electron-builder --win",
+    "build:mac": "set NODE_ENV=production && electron-builder --mac",
+    "build:linux": "set NODE_ENV=production && electron-builder --linux",
     "package": "npm run build:win",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,20 +26,37 @@
     "productName": "FES Email Marketing Tool",
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/logo.jpg"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/logo.jpg"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/logo.jpg"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "extraResources": [
       {
         "from": "../backend/dist",
         "to": "app/backend",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "node_modules/**/*"
     ]
   },
   "devDependencies": {

@@ -2,16 +2,10 @@ const path = require("path");
 const { app, BrowserWindow, ipcMain } = require("electron");
 const { spawn } = require('child_process');
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isProd = process.env.NODE_ENV === 'production' || app.isPackaged;
 
 let backendProcess = null;
 
-
-// At the top of your main.js
-if (process.env.NODE_ENV !== 'production') {
-  require('electron-reload')(__dirname, {
-    electron: require(`${__dirname}/node_modules/electron`)
-  });
-}
 
 function startBackend() {
   let command, args, options;
@@ -81,12 +75,13 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: false, // Allow network requests in development
     },
+    icon: path.join(__dirname, "assets", "logo.jpg"),
   });
 
   win.loadFile(path.join(__dirname, "src", "index.html"));
 
-  // Open DevTools in development mode
-  if (isDev) {
+  // Open DevTools in development mode only
+  if (isDev && !isProd) {
     win.webContents.openDevTools();
   }
 }
