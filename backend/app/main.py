@@ -6,6 +6,8 @@ from app.routers import contact_router
 from app.routers import group_router
 from app.routers import email_router
 
+from app.routers import ai_email_router
+
 
 
 app = FastAPI()
@@ -24,6 +26,8 @@ app.include_router(user_router.router)
 app.include_router(contact_router.router)   
 app.include_router(group_router.router)
 app.include_router(email_router.router)
+app.include_router(ai_email_router.router)
+
 
 @app.get("/")
 def root():
