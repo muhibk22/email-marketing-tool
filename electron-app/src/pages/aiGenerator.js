@@ -82,6 +82,11 @@ export const AIGeneratorPage = {
                                     <div id="image-preview" class="image-preview-container"></div>
                                 </div>
 
+                                <div class="form-group" id="attachment-upload-group" style="display: none;">
+                                    <label class="form-label">Attachments</label>
+                                    <input type="file" id="email-attachments" class="form-input" multiple>
+                                </div>
+
                                 <div class="form-group">
                                     <label class="form-label">Recipients</label>
                                     <div class="recipient-options">
@@ -202,13 +207,16 @@ export const AIGeneratorPage = {
         // Email type change handler
         const emailType = document.getElementById('email-type');
         const imageUploadGroup = document.getElementById('image-upload-group');
+        const attachmentUploadGroup = document.getElementById('attachment-upload-group');
 
-        if (emailType && imageUploadGroup) {
+        if (emailType && imageUploadGroup && attachmentUploadGroup) {
             emailType.addEventListener('change', () => {
                 if (emailType.value === 'marketing') {
                     imageUploadGroup.style.display = 'block';
+                    attachmentUploadGroup.style.display = 'none';
                 } else {
                     imageUploadGroup.style.display = 'none';
+                    attachmentUploadGroup.style.display = 'block';
                 }
             });
         }
@@ -512,12 +520,25 @@ export const AIGeneratorPage = {
 
             } else {
                 // Use transactional endpoint
-                result = await emailApi.sendEmail({
-                    subject,
-                    body,
-                    group_ids: recipientType === 'groups' ? selectedGroups : undefined,
-                    send_to_all: recipientType === 'all'
-                });
+                const formData = new FormData();
+                formData.append('subject', subject);
+                formData.append('body', body);
+
+                if (recipientType === 'groups') {
+                    formData.append('group_ids', selectedGroups.join(','));
+                } else {
+                    formData.append('send_to_all', 'true');
+                }
+
+                // Add attachments
+                const attachmentFiles = document.getElementById('email-attachments').files;
+                if (attachmentFiles.length > 0) {
+                    Array.from(attachmentFiles).forEach(file => {
+                        formData.append('attachments', file);
+                    });
+                }
+
+                result = await emailApi.sendTransactionalEmail(formData);
             }
 
             resultsContent.innerHTML = `

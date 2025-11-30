@@ -31,7 +31,8 @@ def login_user(email: str, password: str):
     # Return all relevant fields for frontend
     return {
         "email": user["email"],
-        "name": user.get("name"),
+        "email": user["email"],
+        "name": user.get("name") or "",
         "company_name": user.get("company_name"),
         "phone": user.get("phone"),
         "token": token

@@ -19,6 +19,24 @@ export const RegisterPage = {
             placeholder: 'Enter your email'
         })}
                     ${FormInput({
+            id: 'name',
+            label: 'Full Name',
+            type: 'text',
+            placeholder: 'Enter your full name'
+        })}
+                    ${FormInput({
+            id: 'company-name',
+            label: 'Company Name (Optional)',
+            type: 'text',
+            placeholder: 'Enter your company name'
+        })}
+                    ${FormInput({
+            id: 'phone',
+            label: 'Phone Number (Optional)',
+            type: 'tel',
+            placeholder: 'Enter your phone number'
+        })}
+                    ${FormInput({
             id: 'password',
             label: 'Password',
             type: 'password',
@@ -53,6 +71,9 @@ export const RegisterPage = {
             e.preventDefault();
 
             const email = getElement('email').value.trim();
+            const name = getElement('name').value.trim();
+            const companyName = getElement('company-name').value.trim();
+            const phone = getElement('phone').value.trim();
             const password = getElement('password').value;
             const confirmPassword = getElement('confirm-password').value;
 
@@ -61,6 +82,11 @@ export const RegisterPage = {
             const emailValidation = validateEmail(email);
             if (!emailValidation.valid) {
                 showMessage(messageEl, emailValidation.message, MESSAGE_TYPES.ERROR);
+                return;
+            }
+
+            if (!name) {
+                showMessage(messageEl, 'Please enter your full name', MESSAGE_TYPES.ERROR);
                 return;
             }
 
@@ -79,7 +105,7 @@ export const RegisterPage = {
             setButtonLoading(submitBtn, true);
 
             try {
-                const response = await authApi.register(email, password);
+                const response = await authApi.register(email, password, name, companyName, phone);
                 console.log('Registration successful:', response);
 
                 showMessage(

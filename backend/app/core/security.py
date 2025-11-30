@@ -1,3 +1,10 @@
+import bcrypt
+# Monkey patch for passlib 1.7.4 compatibility with bcrypt >= 4.0.0
+if not hasattr(bcrypt, '__about__'):
+    class About:
+        __version__ = bcrypt.__version__
+    bcrypt.__about__ = About()
+
 from passlib.context import CryptContext
 from jose import jwt
 from datetime import datetime, timedelta

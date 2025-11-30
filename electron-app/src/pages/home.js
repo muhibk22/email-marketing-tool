@@ -8,7 +8,7 @@ import { initIcons } from '../utils/icons.js';
 
 export const HomePage = {
     render: () => {
-        const userEmail = authState.getUserEmail() || 'User';
+        const displayName = authState.getUserName() || authState.getUserEmail() || 'User';
 
         return `
             ${Sidebar.render()}
@@ -16,7 +16,7 @@ export const HomePage = {
                 <div class="page-header">
                     <div>
                         <h1 class="page-title">Dashboard</h1>
-                        <p class="page-subtitle">Welcome back, ${userEmail}</p>
+                        <p class="page-subtitle">Welcome back, ${displayName}</p>
                     </div>
                 </div>
 

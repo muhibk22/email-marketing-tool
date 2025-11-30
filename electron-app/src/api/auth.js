@@ -6,8 +6,14 @@ export const authApi = {
         return await client.post(API_ENDPOINTS.LOGIN, { email, password });
     },
 
-    register: async (email, password) => {
-        return await client.post(API_ENDPOINTS.REGISTER, { email, password });
+    register: async (email, password, name, company_name, phone) => {
+        return await client.post(API_ENDPOINTS.REGISTER, {
+            email,
+            password,
+            name,
+            company_name,
+            phone
+        });
     },
 
     logout: async () => {

@@ -258,3 +258,120 @@ def get_email_logs(user=Depends(get_current_user_swagger)):
             log["body"] = log["body"][:100] + "..."
 
     return logs
+
+
+# -------------------------
+# 3️⃣ Transactional Email endpoint (with attachments)
+# -------------------------
+from email.mime.application import MIMEApplication
+
+@router.post("/send/transactional")
+async def send_transactional_email(
+    subject: str = Form(...),
+    body: str = Form(...),
+    to_emails: Optional[str] = Form(None),
+    group_ids: Optional[str] = Form(None),
+    send_to_all: bool = Form(False),
+    attachments: Optional[List[UploadFile]] = File(default=None),
+    user=Depends(get_current_user_swagger)
+):
+    recipients = set()
+
+    # Manual emails
+    if to_emails:
+        recipients.update([e.strip().lower() for e in to_emails.split(",") if e.strip()])
+
+    # Groups
+    if group_ids:
+        for gid in [g.strip() for g in group_ids.split(",") if g.strip()]:
+            try:
+                group = groups_collection.find_one({"_id": ObjectId(gid)})
+                if group:
+                    ids = [ObjectId(cid) for cid in group.get("contact_ids", [])]
+                    contacts = contacts_collection.find({"_id": {"$in": ids}})
+                    for c in contacts:
+                        recipients.add(c["email"].lower())
+            except:
+                continue
+
+    # Send to all
+    if send_to_all:
+        contacts = contacts_collection.find({"user_id": ObjectId(user["_id"])})
+        for c in contacts:
+            recipients.add(c["email"].lower())
+
+    if not recipients:
+        raise HTTPException(400, "No recipients found.")
+
+    recipients = list(recipients)
+
+    # Process attachments
+    attachment_parts = []
+    attachment_names = []
+    
+    if attachments:
+        total_size = 0
+        for file in attachments:
+            if not getattr(file, "filename", None):
+                continue
+                
+            content = await file.read()
+            if not content:
+                continue
+
+            total_size += len(content)
+            if total_size > MAX_EMAIL_SIZE:
+                raise HTTPException(400, "Total email size too large for SES.")
+
+            part = MIMEApplication(content)
+            part.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=file.filename
+            )
+            attachment_parts.append(part)
+            attachment_names.append(file.filename)
+
+    # Build MIME
+    root = MIMEMultipart("mixed")
+    root["Subject"] = subject
+    root["From"] = config("SES_FROM_EMAIL")
+    root["To"] = ", ".join(recipients)
+
+    # Body
+    body_part = MIMEMultipart("alternative")
+    body_part.attach(MIMEText(body, "html", "utf-8"))
+    root.attach(body_part)
+
+    # Attachments
+    for part in attachment_parts:
+        root.attach(part)
+
+    # Send via SES
+    try:
+        ses.send_raw_email(
+            Source=config("SES_FROM_EMAIL"),
+            Destinations=recipients,
+            RawMessage={"Data": root.as_string()}
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Transactional email sending failed: {str(e)}")
+
+    # Log
+    emails_collection.insert_one({
+        "user_id": ObjectId(user["_id"]),
+        "subject": subject,
+        "body": body,
+        "sent_to": recipients,
+        "attachments": attachment_names,
+        "created_at": datetime.datetime.utcnow(),
+        "status": "success",
+        "type": "transactional"
+    })
+
+    return {
+        "message": "Transactional email sent successfully",
+        "recipients": recipients,
+        "attachments": attachment_names
+    }
+

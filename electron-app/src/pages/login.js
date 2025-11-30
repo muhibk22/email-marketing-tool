@@ -73,6 +73,7 @@ export const LoginPage = {
                 if (response.token) {
                     authState.setToken(response.token);
                     authState.setUserEmail(email);
+                    authState.setUserDetails(response);
                     window.router.navigate(ROUTES.DASHBOARD);
                 } else {
                     throw new Error('No token received from server');

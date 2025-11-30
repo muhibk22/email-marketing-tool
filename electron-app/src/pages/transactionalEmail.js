@@ -58,6 +58,11 @@ export const TransactionalEmailPage = {
                             <p class="form-hint">Hold Ctrl/Cmd to select multiple groups</p>
                         </div>
 
+                        <div class="form-group">
+                            <label class="form-label">Attachments (Optional)</label>
+                            <input type="file" id="email-attachments" class="form-input" multiple>
+                        </div>
+
                         <div class="form-actions">
                             ${Button({
             id: 'send-email-btn',
@@ -168,22 +173,35 @@ export const TransactionalEmailPage = {
             resultsDiv.style.display = 'block';
             resultsContent.innerHTML = '<div class="loading">Sending email...</div>';
 
-            // Build email data using the correct API schema
-            let emailData = { subject, body };
+            // Build email data using FormData for attachments
+            const formData = new FormData();
+            formData.append('subject', subject);
+            formData.append('body', body);
 
             if (recipientType === 'campaigns') {
-                emailData.group_ids = selectedGroups;
+                formData.append('group_ids', selectedGroups.join(','));
             } else {
-                emailData.send_to_all = true;
+                formData.append('send_to_all', 'true');
             }
 
-            const result = await emailApi.sendEmail(emailData);
+            // Add attachments
+            const attachmentFiles = document.getElementById('email-attachments').files;
+            if (attachmentFiles.length > 0) {
+                Array.from(attachmentFiles).forEach(file => {
+                    formData.append('attachments', file);
+                });
+            }
+
+            const result = await emailApi.sendTransactionalEmail(formData);
 
             resultsContent.innerHTML = `
                 <div class="success-message">
                     <div class="success-icon"><i data-lucide="check-circle"></i></div>
                     <h4>Email sent successfully!</h4>
                     <p><strong>${result.recipients.length}</strong> recipient${result.recipients.length !== 1 ? 's' : ''} received the email.</p>
+                    ${result.attachments && result.attachments.length > 0 ? `
+                        <p><i data-lucide="paperclip"></i> Included ${result.attachments.length} attachment${result.attachments.length !== 1 ? 's' : ''}</p>
+                    ` : ''}
                     <div class="recipients-list">
                         <details>
                             <summary>View recipients</summary>
