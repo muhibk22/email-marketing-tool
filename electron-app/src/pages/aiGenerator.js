@@ -26,7 +26,7 @@ export const AIGeneratorPage = {
                             <form id="ai-generator-form" class="form">
                                 ${FormInput({
             id: 'subject-hint',
-            label: 'Subject Hint (Optional)',
+            label: 'Subject Hint',
             type: 'text',
             placeholder: 'e.g., Monthly Newsletter, Product Launch'
         })}
@@ -43,7 +43,7 @@ export const AIGeneratorPage = {
 
                                 ${FormInput({
             id: 'target-audience',
-            label: 'Target Audience (Optional)',
+            label: 'Target Audience',
             type: 'text',
             placeholder: 'e.g., Existing customers, New leads'
         })}

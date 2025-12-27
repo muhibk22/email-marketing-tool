@@ -11,16 +11,16 @@ function startBackend() {
   let command, args, options;
 
   if (isDev) {
-    // In development, run Python directly with uvicorn
+    // In development, run Python 3.12 with uvicorn
     const backendDir = path.join(__dirname, '..', 'backend');
-    command = 'uvicorn';
-    args = ['app.main:app', '--reload', '--host', '0.0.0.0', '--port', '8000'];
+    command = 'py';
+    args = ['-3.12', '-m', 'uvicorn', 'app.main:app', '--reload', '--host', '0.0.0.0', '--port', '8000'];
     options = {
       cwd: backendDir,
       stdio: 'pipe',
       shell: true
     };
-    console.log('Starting backend in DEV mode with uvicorn from:', backendDir);
+    console.log('Starting backend in DEV mode with Python 3.12 from:', backendDir);
   } else {
     // In production, use the compiled .exe
     const backendPath = path.join(process.resourcesPath, 'app', 'backend', 'run_server.exe');

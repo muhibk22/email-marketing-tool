@@ -1912,15 +1912,38 @@ i[data-lucide] {
 
 .email-content-preview {
     background: white;
-    /* Always white for email preview */
-    color: black;
-    padding: var(--spacing-md);
-    border: 1px solid var(--border-color);
+    /* White background simulates how email will appear to recipients */
+    color: #333;
+    padding: var(--spacing-lg);
+    border: 2px solid var(--border-color);
     border-radius: var(--radius-md);
     min-height: 400px;
     max-height: 600px;
     overflow-y: auto;
     outline: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    /* Frame effect for dark mode */
+}
+
+/* Override any inline styles from AI-generated HTML */
+.email-content-preview * {
+    max-width: 100%;
+}
+
+.preview-body {
+    position: relative;
+}
+
+.preview-body::before {
+    content: "📧 Email Preview";
+    position: absolute;
+    top: -10px;
+    left: 10px;
+    background: var(--bg-card);
+    padding: 0 8px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
 }
 
 /* Editable Fields Styling */
